@@ -7,6 +7,7 @@ PyPDF2
 pdfplumber
 pdfminer.six
 fpdf
+pdfplumber
 pdf2image
 pytesseract
 Pillow
