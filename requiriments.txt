@@ -1,0 +1,12 @@
+Pillow
+poppler-utils
+streamlit
+pandas
+matplotlib
+PyPDF2
+pdfplumber
+pdfminer.six
+fpdf
+pdf2image
+pytesseract
+Pillow
