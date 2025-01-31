@@ -119,7 +119,7 @@ def gerar_graficos(resultados_df, total_nomes):
     st.pyplot(fig_pie)
 
 # Interface do Streamlit
-st.title("Encontra aluno(s). Versão 1.8 - Agora com Correções e Depuração 🔍📊")
+st.title("Encontra aluno(s). Versão 1.6 - Agora com Depuração 🔍📊 - análise de pdf via OCR")
 
 st.write("Faça upload de um arquivo CSV com os nomes dos alunos ou cole manualmente.")
 
