@@ -9,7 +9,7 @@ from PyPDF2 import PdfReader
 import matplotlib.pyplot as plt
 
 # Configuração do Tesseract (se necessário para OCR)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Exemplo para Windows
+pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'  # Ajuste para Linux no Streamlit Cloud
 
 def normalizar_texto(texto):
     """Remove acentos e converte para minúsculas."""
@@ -23,16 +23,22 @@ def fix_spacing(text):
 
 def extrair_texto_pdf(pdf_file):
     """Extrai e corrige o texto de PDFs baseados em texto."""
-    pdf_reader = PdfReader(pdf_file)
     text = ""
-    for page in pdf_reader.pages:
-        if page.extract_text():
-            text += page.extract_text() + "\n"
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+                else:
+                    # Caso não haja texto extraível, aplicar OCR na imagem da página
+                    img = page.to_image(resolution=300).original
+                    img = img.convert("L")  # Converte para escala de cinza para melhor OCR
+                    text += pytesseract.image_to_string(img)
+    except Exception as e:
+        st.error(f"Erro ao processar o PDF: {e}")
 
-    # Aplicar correção de espaçamento
-    text = fix_spacing(text)
-
-    return text
+    return fix_spacing(text)
 
 def extrair_nomes_pdf(pdf_file):
     """Extrai nomes completos do PDF, normalizando-os."""
@@ -45,6 +51,10 @@ def check_names_in_pdf(pdf_file, names):
     found_names = []
     approved_names = extrair_nomes_pdf(pdf_file)
 
+    # Depuração: Exibir nomes extraídos e buscados
+    print("\n🔍 Nomes extraídos do PDF:", approved_names)
+    print("🔎 Nomes buscados:", names)
+
     for name in names:
         normalized_name = normalizar_texto(name)
         if normalized_name in approved_names:
@@ -54,8 +64,6 @@ def check_names_in_pdf(pdf_file, names):
 
 def main(names, pdf_files):
     results = []
-
-    # Itera sobre os PDFs e busca os nomes
     for pdf_file in pdf_files:
         found_names = check_names_in_pdf(pdf_file, names)
         if found_names:
@@ -68,7 +76,7 @@ def main(names, pdf_files):
     # Criando DataFrame
     df = pd.DataFrame(results)
 
-    # Verifica se a coluna "Nome" existe antes de ordenar
+    # Verifica se há nomes antes de ordenar
     if not df.empty and "Nome" in df.columns:
         df = df.drop_duplicates()
         df = df.sort_values(by="Nome").reset_index(drop=True)  # Ordena apenas se a coluna existir
@@ -111,8 +119,7 @@ def gerar_graficos(resultados_df, total_nomes):
     st.pyplot(fig_pie)
 
 # Interface do Streamlit
-st.title("Encontra aluno(s). Versão 1.6 - Agora com Correções e Depuração 🔍📊")
-st.title("Scaneamento via OCR em PDF's que sejam imagens")
+st.title("Encontra aluno(s). Versão 1.8 - Agora com Correções e Depuração 🔍📊")
 
 st.write("Faça upload de um arquivo CSV com os nomes dos alunos ou cole manualmente.")
 
@@ -125,18 +132,23 @@ if csv_file:
     names = df_nomes[0].dropna().astype(str).str.strip().tolist()
     st.success(f"{len(names)} nomes carregados do CSV!")
 else:
-    # Campo de entrada manual caso não tenha CSV
     names_input = st.text_area("Ou cole a lista de nomes (um por linha):")
     names = [name.strip() for name in names_input.split("\n") if name.strip()]
 
 # Upload de PDFs
 pdf_files = st.file_uploader("📂 Faça upload dos PDFs", type="pdf", accept_multiple_files=True)
 
+# Depuração: Mostrar arquivos carregados
+if pdf_files:
+    st.write("📂 Arquivos carregados:")
+    for pdf in pdf_files:
+        st.write(f"- {pdf.name}")  # Exibe os nomes dos PDFs carregados
+
 if st.button("🔍 Analisar PDFs"):
-    if not names:
-        st.warning("Por favor, insira ou carregue pelo menos um nome.")
-    elif not pdf_files:
-        st.warning("Por favor, faça upload de pelo menos um PDF.")
+    if not pdf_files:
+        st.warning("⚠ Nenhum PDF foi carregado! Verifique se o upload foi bem-sucedido.")
+    elif not names:
+        st.warning("⚠ Nenhum nome foi inserido! Faça upload de um CSV ou digite os nomes manualmente.")
     else:
         with st.spinner("Analisando PDFs... ⏳"):
             resultados = main(names, pdf_files)
